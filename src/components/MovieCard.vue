@@ -4,6 +4,9 @@
     <h3>{{ movie.title }}</h3>
     <p>Release Date: {{ movie.release_date }}</p>
     <p>Rating: {{ movie.vote_average }} / 10</p>
+    <button @click.stop="toggleSave" class="save-button">
+      {{ isSaved ? 'Unsave' : 'Save for Later' }}
+    </button>
   </div>
 </template>
 
@@ -14,11 +17,18 @@ export default {
     movie: {
       type: Object,
       required: true
+    },
+    isSaved: {
+      type: Boolean,
+      default: false
     }
   },
   methods: {
     onCardClick() {
       this.$emit('movie-clicked', this.movie);
+    },
+    toggleSave() {
+      this.$emit('toggle-save-movie', this.movie);
     }
   }
 }
@@ -43,5 +53,19 @@ export default {
   overflow: hidden;    
 
   width: 100%; 
+}
+
+.save-button {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.save-button:hover {
+  background-color: #0056b3;
 }
 </style>

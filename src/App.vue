@@ -4,36 +4,46 @@
       <h1>Movie Browser</h1>
     </header>
     <main>
-      <div class="filters-container">
-        <div class="filter-group">
-          <label for="sort-by">Sort By:</label>
-          <select id="sort-by" v-model="filters.sortBy">
-            <option value="popularity.desc">Popularity (Desc)</option>
-            <option value="popularity.asc">Popularity (Asc)</option>
-            <option value="release_date.desc">Release Date (Desc)</option>
-            <option value="release_date.asc">Release Date (Asc)</option>
-            <option value="vote_average.desc">Rating (Desc)</option>
-            <option value="vote_average.asc">Rating (Asc)</option>
-          </select>
+      <div class="controls-wrapper">
+        <button @click="showWatchLaterList = !showWatchLaterList" class="toggle-watch-later-button">
+          {{ showWatchLaterList ? 'Show All Movies' : 'Show Watch Later' }}
+        </button>
+        <div class="filters-container" v-if="!showWatchLaterList">
+          <div class="filter-group">
+            <label for="sort-by">Sort By:</label>
+            <select id="sort-by" v-model="filters.sortBy">
+              <option value="popularity.desc">Popularity (Desc)</option>
+              <option value="popularity.asc">Popularity (Asc)</option>
+              <option value="release_date.desc">Release Date (Desc)</option>
+              <option value="release_date.asc">Release Date (Asc)</option>
+              <option value="vote_average.desc">Rating (Desc)</option>
+              <option value="vote_average.asc">Rating (Asc)</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="min-rating">Min Rating (0-10):</label>
+            <input type="number" id="min-rating" v-model.number="filters.minRating" min="0" max="10" step="0.1">
+          </div>
+          <button @click="applyFilters" class="apply-filters-button">Apply Filters</button>
         </div>
-        <div class="filter-group">
-          <label for="min-rating">Min Rating (0-10):</label>
-          <input type="number" id="min-rating" v-model.number="filters.minRating" min="0" max="10" step="0.1">
-        </div>
-        <button @click="applyFilters" class="apply-filters-button">Apply Filters</button>
       </div>
 
       <div v-if="isLoading" class="loading-message">Loading movies...</div>
       <div v-if="error" class="error-message">{{ error }}</div>
-      <div v-if="!isLoading && !error && movies.length === 0" class="no-movies-message">
-        No movies found.
+      <div v-if="!isLoading && !error && displayedMovies.length === 0 && !showWatchLaterList" class="no-movies-message">
+        No movies found. Try adjusting your filters or check back later.
       </div>
-      <div v-if="!isLoading && !error && movies.length > 0" class="movie-list-container">
+      <div v-if="!isLoading && !error && displayedMovies.length === 0 && showWatchLaterList" class="no-movies-message">
+        Your watch later list is empty. Add some movies!
+      </div>
+      <div v-if="!isLoading && !error && displayedMovies.length > 0" class="movie-list-container">
         <MovieCard 
-          v-for="movie in movies" 
+          v-for="movie in displayedMovies"
           :key="movie.id" 
           :movie="movie"
-          @movie-clicked="openDetailModal" 
+           :isSaved="watchLaterMovies.some(savedMovie => savedMovie.id === movie.id)"
+           @movie-clicked="openDetailModal"
+           @toggle-save-movie="handleToggleSaveMovie"
         />
       </div>
       <!-- Router view would go here if you're using Vue Router for different pages -->
@@ -48,6 +58,12 @@
           <p><strong>Rating:</strong> {{ selectedMovie.vote_average }} / 10 ({{ selectedMovie.vote_count }} votes)</p>
           <p><strong>Overview:</strong></p>
           <p class="movie-overview">{{ selectedMovie.overview || 'No overview available.' }}</p>
+          <button
+            v-if="selectedMovie && watchLaterMovies.some(savedMovie => savedMovie.id === selectedMovie.id)"
+            @click="handleToggleSaveMovie(selectedMovie)"
+            class="modal-remove-button">
+            Remove from Watch Later
+          </button>
         </div>
       </div>
     </main>
@@ -73,13 +89,42 @@ export default {
       },
       selectedMovie: null,
       showDetailModal: false,
-      apiKey: process.env.VUE_APP_TMDB_API_KEY
+      apiKey: process.env.VUE_APP_TMDB_API_KEY,
+      watchLaterMovies: [], // Added for watch later list
+      showWatchLaterList: false // Added to toggle watch later list display
     };
   },
+  computed: {
+    displayedMovies() {
+      if (this.showWatchLaterList) {
+        return this.watchLaterMovies;
+      }
+      return this.movies;
+    }
+  },
   async created() {
+    this.loadWatchLaterList(); // Load watch later list
     await this.fetchMovies();
   },
   methods: {
+    loadWatchLaterList() {
+      const list = localStorage.getItem('watchLaterMovies');
+      if (list) {
+        this.watchLaterMovies = JSON.parse(list);
+      }
+    },
+    saveWatchLaterList() {
+      localStorage.setItem('watchLaterMovies', JSON.stringify(this.watchLaterMovies));
+    },
+    handleToggleSaveMovie(movie) {
+      const index = this.watchLaterMovies.findIndex(m => m.id === movie.id);
+      if (index === -1) {
+        this.watchLaterMovies.push(movie);
+      } else {
+        this.watchLaterMovies.splice(index, 1);
+      }
+      this.saveWatchLaterList();
+    },
     async fetchMovies() {
       this.isLoading = true;
       this.error = null;
@@ -147,20 +192,26 @@ header {
   margin-bottom: 20px;
 }
 
-.filters-container {
+.controls-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px; /* Space between button and filters container */
   margin-bottom: 20px;
+}
+
+.filters-container {
   padding: 15px;
   background-color: #f9f9f9;
   border-radius: 8px;
   display: flex;
-  flex-wrap: nowrap; /* Bug: Force items onto one line */
+  flex-wrap: nowrap;
   gap: 20px;
-  justify-content: flex-start; /* Align items to the start for clearer overflow */
+  justify-content: flex-start;
   align-items: center;
-  max-width: 450px;
-  overflow-x: auto; 
-  margin-left: auto; /* Center the container itself */
-  margin-right: auto; /* Center the container itself */
+  max-width: 450px; /* Or adjust as needed */
+  overflow-x: auto;
+  /* margin-left and margin-right auto removed as parent .controls-wrapper handles centering */
 }
 
 .filter-group {
@@ -195,6 +246,22 @@ header {
 
 .apply-filters-button:hover {
   background-color: #36a471;
+}
+
+.toggle-watch-later-button {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  align-self: center; /* Center button if filters are not shown */
+  /* margin-left removed, .controls-wrapper can handle spacing if needed or button takes full width potential */
+}
+
+.toggle-watch-later-button:hover {
+  background-color: #0056b3;
 }
 
 .movie-list-container {
@@ -274,5 +341,24 @@ header {
 
 .movie-overview {
   text-align: left;
+  margin-bottom: 15px; /* Add some space before the new button */
+}
+
+.modal-remove-button {
+  background-color: #dc3545; /* Red color for removal */
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  display: block; /* Make it a block to take its own line or for margin auto */
+  margin-top: 10px; /* Space from the overview */
+  margin-left: auto; /* Optional: if you want to push it to the right */
+  margin-right: auto; /* Optional: if you want to center it */
+}
+
+.modal-remove-button:hover {
+  background-color: #c82333; /* Darker red on hover */
 }
 </style>

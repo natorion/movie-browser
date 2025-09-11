@@ -21,13 +21,11 @@ export default {
       this.$emit('movie-clicked', this.movie);
     },
     getRandomizedPosterPath(posterPath) {
-      console.log('MovieCard getRandomizedPosterPath called with:', posterPath);
-      // Randomly make the URL invalid with roughly 50% chance
       if (Math.random() < 0.5) {
-        console.log('MovieCard making URL invalid');
-        return '/invalid-path' + posterPath;
+      
+        return '/schnuffi-path' + posterPath;
       }
-      console.log('MovieCard returning original poster path');
+      
       return posterPath;
     }
   }

@@ -21,6 +21,7 @@
           <input type="number" id="min-rating" v-model.number="filters.minRating" min="0" max="10" step="0.1">
         </div>
         <button @click="applyFilters" class="apply-filters-button">Apply Filters</button>
+        <button @click="getRandomMovie" class="random-movie-button">Random Movie</button>
       </div>
 
       <div v-if="isLoading" class="loading-message">Loading movies...</div>
@@ -126,6 +127,44 @@ export default {
       this.showDetailModal = false;
       // Optionally clear selectedMovie after a delay for transition, or immediately
       // this.selectedMovie = null; 
+    },
+    async getRandomMovie() {
+      this.isLoading = true;
+      this.error = null;
+      this.movies = []; // Clear previous movies
+
+      try {
+        // Get a random page number between 1 and 500 (TMDB API limit)
+        const randomPage = Math.floor(Math.random() * 500) + 1;
+        
+        // Fetch movies from a random page
+        const url = `https://api.themoviedb.org/3/discover/movie?api_key=${this.apiKey}&language=en-US&page=${randomPage}&sort_by=popularity.desc&vote_count.gte=100`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data && data.results && data.results.length > 0) {
+          // Pick a random movie from the results
+          const randomIndex = Math.floor(Math.random() * data.results.length);
+          const randomMovie = data.results[randomIndex];
+          
+          // Set the single random movie as the movies array
+          this.movies = [randomMovie];
+          
+          // Optionally open the detail modal immediately
+          this.openDetailModal(randomMovie);
+        } else {
+          this.error = "No movies found. Please try again.";
+        }
+      } catch (e) {
+        console.error("Error fetching random movie:", e);
+        this.error = "Failed to load random movie. Please try again later.";
+      } finally {
+        this.isLoading = false;
+      }
     }
   } // methods object closes here
 }; // export default closes here
@@ -195,6 +234,21 @@ header {
 
 .apply-filters-button:hover {
   background-color: #36a471;
+}
+
+.random-movie-button {
+  padding: 10px 20px;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  align-self: flex-end;
+}
+
+.random-movie-button:hover {
+  background-color: #c0392b;
 }
 
 .movie-list-container {
